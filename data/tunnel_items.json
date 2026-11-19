@@ -1,0 +1,57 @@
+[
+  {
+    "id": "item-1",
+    "type": "motto",
+    "badge": "✨ Motto",
+    "kicker": "Rotary District 9212",
+    "title": "Service Above Self",
+    "sub": "Sponsored by Rotary Club of Bahir Dar",
+    "desc": "Uniting student leaders at BDU STEM Center in a global tradition of selfless community impact.",
+    "pIdx": 24,
+    "side": "face-right"
+  },
+  {
+    "id": "item-2",
+    "type": "location",
+    "badge": "📍 Location",
+    "kicker": "Bahir Dar, Ethiopia",
+    "title": "BDU STEM Center",
+    "sub": "Creative Youth Community",
+    "desc": "High school students developing leadership and collaborating on impactful community ideas.",
+    "pills": [
+      "📍 BDU Main Campus",
+      "🕒 Saturdays 9:00 – 11:30 AM (Hall B)"
+    ],
+    "pIdx": 72,
+    "side": "face-left"
+  },
+  {
+    "id": "item-3",
+    "type": "mission",
+    "badge": "💡 Mission",
+    "kicker": "About the Club",
+    "title": "Empowering Youth Leadership",
+    "desc": "Empowering youth to grow as empathetic leaders and create lasting positive change in Bahir Dar.",
+    "metrics": [
+      { "val": "100%", "lbl": "Youth-Led" },
+      { "val": "STEM", "lbl": "Innovation" },
+      { "val": "9212", "lbl": "District" }
+    ],
+    "pIdx": 140,
+    "side": "face-down"
+  },
+  {
+    "id": "item-4",
+    "type": "project",
+    "badge": "🚀 Projects",
+    "kicker": "Action & Service",
+    "title": "Key Initiatives",
+    "projects": [
+      { "icon": "🔬", "name": "STEM Mentorship", "detail": "Tutoring and inspiring junior students in robotics and coding." },
+      { "icon": "🤝", "name": "Community Outreach", "detail": "Sanitation drives, tree planting & school supply sharing." },
+      { "icon": "💡", "name": "Leadership Labs", "detail": "Teamwork, public speaking, and project planning." }
+    ],
+    "pIdx": 220,
+    "side": "face-up"
+  }
+]
