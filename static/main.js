@@ -68,8 +68,8 @@
   }
   gearShape.closePath();
 
-  // 6 Spokes
-  const hubRadius = 0.23;
+  // 6 Spokes: clean non-intersecting paths with safe bevel clearance
+  const hubRadius = 0.24;
   const rimRadius = 0.64;
   function createSpokeHole(centerAngle, spanAngle) {
     const spoke = new THREE.Path();
@@ -80,38 +80,44 @@
     return spoke;
   }
   for (let i = 0; i < 6; i++) {
-    gearShape.holes.push(createSpokeHole(i * (Math.PI / 3), 0.70));
+    gearShape.holes.push(createSpokeHole(i * (Math.PI / 3), 0.68));
   }
 
-  // Axle Center Hole (Smooth circular aperture portal the camera zooms into)
+  // Official Rotary Axle Center Hole with Iconic Keyway Notch
   const hubHole = new THREE.Path();
-  const axleRadius = 0.16;
-  hubHole.absarc(0, 0, axleRadius, 0, Math.PI * 2, false);
+  const axleRadius = 0.125;
+  const keywayW = 0.032;
+  const keywayH = 0.180;
+  const keywayAngle = Math.asin(keywayW / axleRadius);
+
+  // Clean continuous clockwise path for the center axle & keyway notch
+  hubHole.moveTo(keywayW, axleRadius * Math.cos(keywayAngle));
+  hubHole.absarc(0, 0, axleRadius, Math.PI / 2 - keywayAngle, -Math.PI * 1.5 + keywayAngle, true);
+  hubHole.lineTo(-keywayW, keywayH);
+  hubHole.lineTo(keywayW, keywayH);
   hubHole.closePath();
   gearShape.holes.push(hubHole);
 
-  // High-fidelity smooth geometry: high curve subdivisions & smoothed normals eliminate low-poly facets
+  // High-fidelity smooth geometry: proportional bevel prevents self-intersecting corner fins
   const gearGeometry = new THREE.ExtrudeGeometry(gearShape, {
     depth: 0.22,
     bevelEnabled: true,
-    bevelThickness: 0.03,
-    bevelSize: 0.025,
-    bevelSegments: 8,
-    curveSegments: 128
+    bevelThickness: 0.010,
+    bevelSize: 0.008,
+    bevelSegments: 2,
+    curveSegments: 54
   });
   gearGeometry.center();
   gearGeometry.computeVertexNormals();
 
   const gearMaterial = new THREE.MeshStandardMaterial({
-    color: 0x1d85d7,
-    metalness: 0.40,
-    roughness: 0.35,
-    emissive: 0x093a65,
-    emissiveIntensity: 0.15,
+    color: 0x1a84d4,
+    metalness: 0.45,
+    roughness: 0.30,
+    emissive: 0x063a66,
+    emissiveIntensity: 0.18,
     flatShading: false,
-    transparent: true,
-    opacity: 1,
-    side: THREE.DoubleSide
+    side: THREE.FrontSide
   });
 
   const gearGroup = new THREE.Group();
@@ -251,7 +257,7 @@
     targetColors[i3 + 1] = chosenColor.g;
     targetColors[i3 + 2] = chosenColor.b;
 
-    // Give the 4 badge-holding particles a vibrant, radiant guide star glow
+    // Guide star glow for badge particles
     if (i === 24 || i === 140) {
       targetColors[i3] = 0.12; targetColors[i3 + 1] = 0.58; targetColors[i3 + 2] = 0.98; // Electric Rotary Blue
     } else if (i === 72 || i === 220) {
@@ -796,24 +802,33 @@
     const introProgress = Math.min(1.0, elapsedTime / 1.1);
     const introEase = 1.0 - Math.pow(1.0 - introProgress, 3);
 
-    // Gear hole expands smoothly like an aperture portal as you enter, preventing mesh collision
-    const portalExpansion = 1.0 + smoothstep(0.12, 0.35, tZoom) * 3.5;
-    gearGroup.scale.set(
-      baseGearWorldRadius * portalExpansion * introEase,
-      baseGearWorldRadius * portalExpansion * introEase,
-      baseGearWorldRadius * introEase
-    );
+    // Portal scale: stays natural during zoom, gently expanding only as gear covers screen
+    const portalExpansion = 1.0 + smoothstep(0.28, 0.38, smoothScrollProg) * 1.5;
+    const gearScale = baseGearWorldRadius * portalExpansion * introEase;
+    gearGroup.scale.set(gearScale, gearScale, gearScale);
 
-    // Lockup Text and Gear Opacity Transitions
+    // Lockup Text Fade
     if (lockupText) {
       const textOpacity = Math.max(0, 1.0 - tZoom * 2.8);
       lockupText.style.opacity = textOpacity.toFixed(3);
     }
 
-    // Gear softly dissolves before camera intersects inner walls, revealing the assembled tunnel
-    const gearOpacity = Math.max(0, 1.0 - smoothstep(0.16, 0.32, smoothScrollProg)) * introEase;
-    gearMaterial.opacity = gearOpacity;
-    gearMaterial.depthWrite = gearOpacity > 0.6;
+    // Smooth, cinematic opacity fade into the tunnel portal
+    // Stays 100% solid & opaque on home screen and initial zoom (zero ghosting)
+    // Fades gracefully as camera enters axle hole, then cleanly culls when inside tunnel
+    const gearOpacity = Math.max(0, 1.0 - smoothstep(0.22, 0.38, smoothScrollProg)) * introEase;
+    if (gearOpacity < 0.99) {
+      gearMaterial.transparent = true;
+      gearMaterial.opacity = gearOpacity;
+      gearMaterial.depthWrite = true;
+    } else {
+      gearMaterial.transparent = false;
+      gearMaterial.opacity = 1.0;
+      gearMaterial.depthWrite = true;
+    }
+
+    // Clean visibility cutoff once fully entered into the tunnel
+    gearGroup.visible = (smoothScrollProg < 0.385);
 
     // Mouse repulsion strictly on the home screen; fades to 0 as soon as zoom begins
     const mouseActive = mouse.isHovered && smoothScrollProg < 0.08;
