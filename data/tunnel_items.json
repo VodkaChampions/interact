@@ -1,57 +1,141 @@
 [
   {
     "id": "item-1",
-    "type": "motto",
-    "badge": "✨ Motto",
-    "kicker": "Rotary District 9212",
-    "title": "Service Above Self",
-    "sub": "Sponsored by Rotary Club of Bahir Dar",
-    "desc": "Uniting student leaders at BDU STEM Center in a global tradition of selfless community impact.",
-    "pIdx": 24,
+    "type": "home",
+    "badge": "🌟 01 / Home",
+    "kicker": "Interact Club of BDU STEM Center",
+    "title": "Welcome to Interact BDU STEM",
+    "sub": "Youth Leadership & Innovation in Service",
+    "desc": "A dynamic high school community based at Bahir Dar University STEM Center, united by Rotary's call of Service Above Self to build impactful solutions for Bahir Dar.",
+    "metrics": [
+      { "val": "50+", "lbl": "Active Members" },
+      { "val": "14", "lbl": "STEM Projects" },
+      { "val": "9212", "lbl": "District" }
+    ],
+    "pills": [
+      "🏛️ BDU STEM Center Hub",
+      "🤝 Rotary Club of Bahir Dar",
+      "🌍 Rotary International Network"
+    ],
+    "pIdx": 35,
     "side": "face-right"
   },
   {
     "id": "item-2",
-    "type": "location",
-    "badge": "📍 Location",
-    "kicker": "Bahir Dar, Ethiopia",
-    "title": "BDU STEM Center",
-    "sub": "Creative Youth Community",
-    "desc": "High school students developing leadership and collaborating on impactful community ideas.",
+    "type": "about",
+    "badge": "💡 02 / About Us",
+    "kicker": "Our Story & Vision",
+    "title": "Empowering Tomorrow's Leaders",
+    "sub": "Bridging STEM Curiosity with Community Empathy",
+    "desc": "We empower high school students to grow as creative thinkers and compassionate leaders. Supported by our sponsoring Rotary club, we tackle real social challenges through teamwork and science.",
     "pills": [
-      "📍 BDU Main Campus",
-      "🕒 Saturdays 9:00 – 11:30 AM (Hall B)"
+      "🎯 Mission: Lead with purpose, serve with heart",
+      "🔭 Vision: A vibrant, youth-led Ethiopia",
+      "⭐ Core Value: Integrity, Fellowship & Service"
     ],
-    "pIdx": 72,
+    "pIdx": 80,
     "side": "face-left"
   },
   {
     "id": "item-3",
-    "type": "mission",
-    "badge": "💡 Mission",
-    "kicker": "About the Club",
-    "title": "Empowering Youth Leadership",
-    "desc": "Empowering youth to grow as empathetic leaders and create lasting positive change in Bahir Dar.",
-    "metrics": [
-      { "val": "100%", "lbl": "Youth-Led" },
-      { "val": "STEM", "lbl": "Innovation" },
-      { "val": "9212", "lbl": "District" }
+    "type": "projects",
+    "badge": "🚀 03 / Our Projects",
+    "kicker": "Action & Innovation",
+    "title": "Impact in the Community",
+    "sub": "Practical STEM & Humanitarian Initiatives",
+    "desc": "From hands-on coding bootcamps for elementary students to environmental stewardship around Lake Tana, our projects turn young passion into measurable community benefit.",
+    "projects": [
+      { "icon": "🔬", "name": "Junior STEM Mentorship", "detail": "Teaching coding, robotics & math fundamentals to middle schoolers." },
+      { "icon": "🌱", "name": "Lake Tana Eco Action", "detail": "Watershed cleanups, awareness campaigns & indigenous tree planting." },
+      { "icon": "📚", "name": "Books For Growth", "detail": "Establishing reading corners and donating learning supplies." }
     ],
     "pIdx": 140,
     "side": "face-down"
   },
   {
     "id": "item-4",
-    "type": "project",
-    "badge": "🚀 Projects",
-    "kicker": "Action & Service",
-    "title": "Key Initiatives",
-    "projects": [
-      { "icon": "🔬", "name": "STEM Mentorship", "detail": "Tutoring and inspiring junior students in robotics and coding." },
-      { "icon": "🤝", "name": "Community Outreach", "detail": "Sanitation drives, tree planting & school supply sharing." },
-      { "icon": "💡", "name": "Leadership Labs", "detail": "Teamwork, public speaking, and project planning." }
+    "type": "events",
+    "badge": "📅 04 / Events & Activities",
+    "kicker": "Calendar & Assemblies",
+    "title": "Weekly Assemblies & Summits",
+    "sub": "Saturdays 9:00 AM – Hall B, BDU STEM Center",
+    "desc": "Our Saturdays are alive with innovation challenges, debate sessions, project development sprints, and mentorship dialogues with veteran Rotary guests.",
+    "pills": [
+      "🕒 Weekly Assembly: Saturdays 9:00 - 11:30 AM",
+      "🏆 Annual Bahir Dar Youth STEM Fair",
+      "🤝 Community Outreach Field Days",
+      "🎤 Leadership & Public Speaking Labs"
     ],
-    "pIdx": 220,
+    "pIdx": 210,
+    "side": "face-up"
+  },
+  {
+    "id": "item-5",
+    "type": "team",
+    "badge": "👥 05 / Our Team",
+    "kicker": "Student Leadership",
+    "title": "Executive Board & Mentors",
+    "sub": "Dedicated High School Officers Leading with Heart",
+    "desc": "Elected student officers work closely with Rotary club advisors and university faculty to plan initiatives, manage projects, and foster an inclusive club culture.",
+    "pills": [
+      "👑 Club President [Placeholder - Add Name]",
+      "⚡ Vice President [Placeholder - Add Name]",
+      "📝 Secretary [Placeholder - Add Name]",
+      "💡 Projects Director [Placeholder - Add Name]",
+      "🎖️ Rotary Youth Advisor [Rotary Club of Bahir Dar]"
+    ],
+    "pIdx": 290,
+    "side": "face-right"
+  },
+  {
+    "id": "item-6",
+    "type": "gallery",
+    "badge": "📸 06 / Gallery",
+    "kicker": "Club Memories",
+    "title": "Moments of Service & Learning",
+    "sub": "Capturing the Spirit of Youth in Action",
+    "desc": "A visual showcase of our journey—hands-on experiments at the STEM lab, vibrant Saturday discussions, community donation rallies, and district youth conferences.",
+    "pills": [
+      "🖼️ STEM Robotics Showcase 2026",
+      "🤝 Tree Planting & Lake Tana Clean-Up",
+      "🎉 New Member Induction & Pinning Ceremony",
+      "💡 Hackathon & Project Presentation Day"
+    ],
+    "pIdx": 380,
+    "side": "face-left"
+  },
+  {
+    "id": "item-7",
+    "type": "join",
+    "badge": "✨ 07 / Join Us",
+    "kicker": "Become an Interactor",
+    "title": "Join Our Next Generation",
+    "sub": "Open to High School Students in Bahir Dar",
+    "desc": "Step forward to make lifelong friends, develop public speaking and engineering leadership skills, and create positive change in your city. Everyone is welcome!",
+    "pills": [
+      "✅ Open to high school students (Grades 9–12)",
+      "✅ No prior STEM experience required",
+      "✅ Saturday assemblies at Hall B, BDU STEM",
+      "📝 Application Period: Open for New Term"
+    ],
+    "pIdx": 480,
+    "side": "face-down"
+  },
+  {
+    "id": "item-8",
+    "type": "contact",
+    "badge": "📬 08 / Contact Us",
+    "kicker": "Get in Touch",
+    "title": "Reach Out & Connect",
+    "sub": "BDU STEM Center, Main Campus, Bahir Dar",
+    "desc": "Interested in partnering, mentoring, or visiting our Saturday assemblies? We'd love to hear from you. Drop by Hall B or send us a message through our channels.",
+    "pills": [
+      "📍 Hall B, STEM Center, BDU Main Campus",
+      "✉️ contact@interactbdustem.org [Placeholder]",
+      "💬 Telegram: @interactbdustem [Placeholder]",
+      "🕒 Meeting Time: Saturdays 9:00 – 11:30 AM"
+    ],
+    "pIdx": 580,
     "side": "face-up"
   }
 ]

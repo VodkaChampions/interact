@@ -3,129 +3,302 @@
   const anchor = document.getElementById('wheel-anchor');
   const lockup = document.getElementById('lockup');
   const lockupText = document.getElementById('lockup-text');
+  const mainContent = document.getElementById('main-content');
+  const navTooltipEl = document.getElementById('nav-tooltip');
+
   if (!canvas || typeof THREE === 'undefined') return;
 
-  // 1. Scene, Camera, Renderer Setup
+  // ─────────────────────────────────────────────────────────────
+  // 1. Scene, Camera, Renderer
+  // ─────────────────────────────────────────────────────────────
   const scene = new THREE.Scene();
-  // Warm atmospheric linear fog that keeps tunnel crisp near camera and gently fades far horizon
-  scene.fog = new THREE.Fog(0xfceeda, 20.0, 40.0);
+  scene.fog = new THREE.Fog(0xfceeda, 22.0, 48.0);
 
-  // Near plane set to 0.005 so camera never slices through gear polygons during zoom
   const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.005, 1000);
   camera.position.set(0, 0, 6);
 
-  const renderer = new THREE.WebGLRenderer({
-    canvas,
-    alpha: true,
-    antialias: true
-  });
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.localClippingEnabled = true;
 
   let visibleHeight = 2 * 6 * Math.tan((camera.fov * Math.PI) / 360);
   let worldPerPixel = visibleHeight / window.innerHeight;
 
-  // 2. Lighting for 3D Gear
-  const ambientLight = new THREE.AmbientLight(0xfff8ee, 1.2);
+  // ─────────────────────────────────────────────────────────────
+  // 2. Lighting
+  // ─────────────────────────────────────────────────────────────
+  const ambientLight = new THREE.AmbientLight(0xfff8ee, 1.4);
   scene.add(ambientLight);
 
-  const keyLight = new THREE.PointLight(0xffffff, 1.8, 50);
+  const keyLight = new THREE.PointLight(0xffffff, 2.0, 50);
   keyLight.position.set(4, 3, 4);
   scene.add(keyLight);
 
-  const fillLight = new THREE.PointLight(0x2563eb, 2.2, 50);
+  const fillLight = new THREE.PointLight(0x2563eb, 2.4, 50);
   fillLight.position.set(-3, -2, 3);
   scene.add(fillLight);
 
-  const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.2);
+  const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.4);
   rimLight.position.set(0, 4, -2);
   scene.add(rimLight);
 
-  // 3. Build 3D Rotary Gear
-  const teethCount = 24;
-  const step = (Math.PI * 2) / teethCount;
-  const gearShape = new THREE.Shape();
-  const crownWidth = 0.16 * step;
-  const valleyWidth = 0.36 * step;
-  const tipRadius = 0.98;
-  const valleyRadius = 0.835;
+  // ─────────────────────────────────────────────────────────────
+  // 3. Intro Rotary Wheel (SVG → CanvasTexture → PlaneGeometry)
+  // ─────────────────────────────────────────────────────────────
+  const gearGroup = new THREE.Group();
 
-  for (let i = 0; i < teethCount; i++) {
-    const mid = i * step;
-    const a0 = mid - crownWidth;
-    const a1 = mid + crownWidth;
-    const a2 = mid + valleyWidth;
-    const a3 = mid + step - valleyWidth;
+  const gearCanvas = document.createElement('canvas');
+  gearCanvas.width = 2048;
+  gearCanvas.height = 2048;
+  const gearCtx = gearCanvas.getContext('2d');
 
-    if (i === 0) {
-      gearShape.moveTo(Math.cos(a0) * tipRadius, Math.sin(a0) * tipRadius);
-    } else {
-      gearShape.lineTo(Math.cos(a0) * tipRadius, Math.sin(a0) * tipRadius);
-    }
-    gearShape.lineTo(Math.cos(a1) * tipRadius, Math.sin(a1) * tipRadius);
-    gearShape.lineTo(Math.cos(a2) * valleyRadius, Math.sin(a2) * valleyRadius);
-    gearShape.lineTo(Math.cos(a3) * valleyRadius, Math.sin(a3) * valleyRadius);
-  }
-  gearShape.closePath();
+  const gearTexture = new THREE.CanvasTexture(gearCanvas);
+  gearTexture.generateMipmaps = true;
+  gearTexture.minFilter = THREE.LinearMipmapLinearFilter;
 
-  // 6 Spokes: clean non-intersecting paths with safe bevel clearance
-  const hubRadius = 0.24;
-  const rimRadius = 0.64;
-  function createSpokeHole(centerAngle, spanAngle) {
-    const spoke = new THREE.Path();
-    const half = spanAngle / 2;
-    spoke.absarc(0, 0, rimRadius, centerAngle - half, centerAngle + half, false);
-    spoke.absarc(0, 0, hubRadius, centerAngle + half, centerAngle - half, true);
-    spoke.closePath();
-    return spoke;
-  }
-  for (let i = 0; i < 6; i++) {
-    gearShape.holes.push(createSpokeHole(i * (Math.PI / 3), 0.68));
-  }
+  const gearImg = new Image();
+  gearImg.crossOrigin = 'anonymous';
+  gearImg.onload = () => {
+    gearCtx.clearRect(0, 0, 2048, 2048);
+    gearCtx.drawImage(gearImg, 0, 0, 2048, 2048);
+    gearTexture.needsUpdate = true;
+  };
+  gearImg.src = '/static/rotary_wheel_clean.svg';
 
-  // Official Rotary Axle Center Hole with Iconic Keyway Notch
-  const hubHole = new THREE.Path();
-  const axleRadius = 0.125;
-  const keywayW = 0.032;
-  const keywayH = 0.180;
-  const keywayAngle = Math.asin(keywayW / axleRadius);
-
-  // Clean continuous clockwise path for the center axle & keyway notch
-  hubHole.moveTo(keywayW, axleRadius * Math.cos(keywayAngle));
-  hubHole.absarc(0, 0, axleRadius, Math.PI / 2 - keywayAngle, -Math.PI * 1.5 + keywayAngle, true);
-  hubHole.lineTo(-keywayW, keywayH);
-  hubHole.lineTo(keywayW, keywayH);
-  hubHole.closePath();
-  gearShape.holes.push(hubHole);
-
-  // High-fidelity smooth geometry: proportional bevel prevents self-intersecting corner fins
-  const gearGeometry = new THREE.ExtrudeGeometry(gearShape, {
-    depth: 0.22,
-    bevelEnabled: true,
-    bevelThickness: 0.010,
-    bevelSize: 0.008,
-    bevelSegments: 2,
-    curveSegments: 54
-  });
-  gearGeometry.center();
-  gearGeometry.computeVertexNormals();
-
+  const gearGeometry = new THREE.PlaneGeometry(2, 2);
   const gearMaterial = new THREE.MeshStandardMaterial({
-    color: 0x1a84d4,
-    metalness: 0.45,
-    roughness: 0.30,
+    map: gearTexture,
+    transparent: true,
+    alphaTest: 0.02,
+    roughness: 0.28,
+    metalness: 0.35,
     emissive: 0x063a66,
     emissiveIntensity: 0.18,
-    flatShading: false,
+    side: THREE.DoubleSide
+  });
+  const gearMesh = new THREE.Mesh(gearGeometry, gearMaterial);
+  gearGroup.add(gearMesh);
+
+  const gearBackMaterial = new THREE.MeshStandardMaterial({
+    map: gearTexture,
+    transparent: true,
+    alphaTest: 0.02,
+    color: 0x08456f,
+    roughness: 0.45,
+    metalness: 0.50,
+    side: THREE.DoubleSide
+  });
+  const gearBackMesh = new THREE.Mesh(gearGeometry, gearBackMaterial);
+  gearBackMesh.position.z = -0.04;
+  gearGroup.add(gearBackMesh);
+
+  scene.add(gearGroup);
+
+  let gearHoleWorldX = 0;
+  let gearHoleWorldY = 0;
+  let baseGearWorldRadius = 1;
+
+  // ─────────────────────────────────────────────────────────────
+  // 4. Navigation Gear (Post-tunnel, left-side, SVG-textured)
+  // ─────────────────────────────────────────────────────────────
+  const NAV_SECTIONS = [
+    { name: 'Home',              icon: '🏠' },
+    { name: 'About Us',          icon: '📖' },
+    { name: 'Our Projects',      icon: '🚀' },
+    { name: 'Events & Activities', icon: '🎉' },
+    { name: 'Our Team',          icon: '👥' },
+    { name: 'Gallery',           icon: '🖼' },
+    { name: 'Join Us',           icon: '✋' },
+    { name: 'Contact Us',        icon: '✉' }
+  ];
+  const NUM_TEETH = NAV_SECTIONS.length; // 8
+  const TOOTH_ANGLE = (Math.PI * 2) / NUM_TEETH; // 45° per tooth
+
+  // Build the nav gear texture with icons baked onto the SVG layer
+  const navGearCanvas = document.createElement('canvas');
+  navGearCanvas.width = 2048;
+  navGearCanvas.height = 2048;
+  const navGearCtx = navGearCanvas.getContext('2d');
+
+  const navGearTexture = new THREE.CanvasTexture(navGearCanvas);
+  navGearTexture.generateMipmaps = true;
+  navGearTexture.minFilter = THREE.LinearMipmapLinearFilter;
+
+  let navGearImgLoaded = false;
+  const navGearImg = new Image();
+  navGearImg.crossOrigin = 'anonymous';
+  navGearImg.onload = () => {
+    navGearImgLoaded = true;
+    renderNavGearTexture(0);
+  };
+  navGearImg.src = '/static/rotary_wheel_clean.svg';
+
+  function renderNavGearTexture(activeIdx) {
+    const W = 2048;
+    navGearCtx.clearRect(0, 0, W, W);
+
+    // Tint to electric-blue metallic
+    navGearCtx.save();
+    navGearCtx.drawImage(navGearImg, 0, 0, W, W);
+
+    // Blue overlay for metallic feel
+    navGearCtx.globalCompositeOperation = 'multiply';
+    navGearCtx.fillStyle = '#1a5fa8';
+    navGearCtx.fillRect(0, 0, W, W);
+    navGearCtx.globalCompositeOperation = 'source-over';
+    navGearCtx.restore();
+
+    // Redraw SVG cleanly on top
+    navGearCtx.save();
+    navGearCtx.globalAlpha = 0.72;
+    navGearCtx.drawImage(navGearImg, 0, 0, W, W);
+    navGearCtx.globalAlpha = 1.0;
+    navGearCtx.restore();
+
+    // Draw icons at each tooth position (outer edge of gear, every 45°)
+    const cx = W / 2;
+    const cy = W / 2;
+    // The SVG's outer tooth tips are roughly at radius 490/512 of half-width
+    const iconR = W * 0.44; // slightly inside tooth tips
+
+    navGearCtx.font = `bold ${W * 0.062}px serif`;
+    navGearCtx.textAlign = 'center';
+    navGearCtx.textBaseline = 'middle';
+
+    for (let i = 0; i < NUM_TEETH; i++) {
+      const angle = (i * TOOTH_ANGLE) - Math.PI / 2; // top = section 0
+      const ix = cx + Math.cos(angle) * iconR;
+      const iy = cy + Math.sin(angle) * iconR;
+
+      // Active tooth glow ring
+      if (i === activeIdx) {
+        navGearCtx.save();
+        navGearCtx.beginPath();
+        navGearCtx.arc(ix, iy, W * 0.052, 0, Math.PI * 2);
+        navGearCtx.fillStyle = 'rgba(37, 200, 255, 0.35)';
+        navGearCtx.fill();
+        navGearCtx.strokeStyle = 'rgba(37, 200, 255, 0.90)';
+        navGearCtx.lineWidth = W * 0.006;
+        navGearCtx.stroke();
+        navGearCtx.restore();
+      }
+
+      // Icon shadow for legibility
+      navGearCtx.save();
+      navGearCtx.shadowColor = 'rgba(0,0,0,0.75)';
+      navGearCtx.shadowBlur = W * 0.015;
+      navGearCtx.fillStyle = i === activeIdx ? '#ffffff' : 'rgba(255,255,255,0.80)';
+      navGearCtx.fillText(NAV_SECTIONS[i].icon, ix, iy);
+      navGearCtx.restore();
+    }
+
+    navGearTexture.needsUpdate = true;
+  }
+
+  // Build 3D mesh for nav gear (thick extruded disc with 8 teeth bumps)
+  // We'll use a shape-based approach: circle + 8 tooth bumps
+  function buildNavGearShape() {
+    const shape = new THREE.Shape();
+    const outerR = 1.0;
+    const innerR = 0.52; // big center hole
+    const toothH = 0.14;
+    const toothW = 0.11; // half-width in radians
+    const pts = 128;
+
+    // Outer profile with tooth bumps at every 45°
+    const outerPoints = [];
+    for (let i = 0; i <= pts; i++) {
+      const ang = (i / pts) * Math.PI * 2;
+      let r = outerR;
+
+      // Check if near a tooth center
+      for (let t = 0; t < NUM_TEETH; t++) {
+        const toothAng = (t / NUM_TEETH) * Math.PI * 2;
+        const diff = Math.abs(((ang - toothAng) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
+        if (diff < toothW * 1.5) {
+          const blend = Math.max(0, 1 - diff / (toothW * 1.5));
+          r = outerR + toothH * blend * blend;
+        }
+      }
+
+      outerPoints.push(new THREE.Vector2(Math.cos(ang) * r, Math.sin(ang) * r));
+    }
+    shape.setFromPoints(outerPoints);
+
+    // Punch center hole
+    const hole = new THREE.Path();
+    for (let i = 0; i <= pts; i++) {
+      const ang = (i / pts) * Math.PI * 2;
+      const hx = Math.cos(ang) * innerR;
+      const hy = Math.sin(ang) * innerR;
+      if (i === 0) hole.moveTo(hx, hy);
+      else hole.lineTo(hx, hy);
+    }
+    shape.holes.push(hole);
+
+    return shape;
+  }
+
+  const navGearShape = buildNavGearShape();
+  const navGearExtrudeSettings = {
+    depth: 0.08,
+    bevelEnabled: true,
+    bevelThickness: 0.018,
+    bevelSize: 0.012,
+    bevelSegments: 3
+  };
+  const navGearGeo = new THREE.ExtrudeGeometry(navGearShape, navGearExtrudeSettings);
+
+  // Apply UV mapping for the texture
+  navGearGeo.computeBoundingBox();
+
+  const navGearMat = new THREE.MeshStandardMaterial({
+    map: navGearTexture,
+    roughness: 0.25,
+    metalness: 0.72,
+    emissive: 0x0a3a6a,
+    emissiveIntensity: 0.22,
     side: THREE.FrontSide
   });
 
-  const gearGroup = new THREE.Group();
-  const gearMesh = new THREE.Mesh(gearGeometry, gearMaterial);
-  gearGroup.add(gearMesh);
-  scene.add(gearGroup);
+  // Also a flat plane overlay so SVG icons are always crisp
+  const navIconPlaneGeo = new THREE.PlaneGeometry(2, 2);
+  const navIconPlaneMat = new THREE.MeshBasicMaterial({
+    map: navGearTexture,
+    transparent: true,
+    alphaTest: 0.01,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+  const navIconPlane = new THREE.Mesh(navIconPlaneGeo, navIconPlaneMat);
+  navIconPlane.position.z = 0.12;
 
-  // 4. Particle Field: Sparse & Calm at Home (420 particles) -> Dense in Tunnel (2,400 particles)
+  const navGearGroup = new THREE.Group();
+  const navGearMesh = new THREE.Mesh(navGearGeo, navGearMat);
+  navGearGroup.add(navGearMesh);
+  navGearGroup.add(navIconPlane);
+  navGearGroup.visible = false;
+  scene.add(navGearGroup);
+
+  // Nav gear state
+  let navActive = false;           // true when mouse is in left 42% of screen
+  let navToothIndex = 0;           // 0-7, current snap position
+  let navGearTargetAngle = 0;      // target rotation in radians
+  let navGearCurrentAngle = 0;     // current animated rotation
+  let navScrollCooldown = false;
+  let navGearVisible = false;      // true after tunnel exit
+  let navGearSlideIn = 0;          // 0→1 slide-in progress
+  let activeNavSection = 0;        // 0-7 currently selected section
+
+  // Hover detection for individual tooth icons (screen-space)
+  let hoveredToothIndex = -1;
+  let tooltipFade = 0;
+  let tooltipTargetFade = 0;
+
+  // ─────────────────────────────────────────────────────────────
+  // 5. Particle Field
+  // ─────────────────────────────────────────────────────────────
   const PARTICLE_COUNT = 2400;
   const REST_PARTICLE_COUNT = 420;
   const particleGeometry = new THREE.BufferGeometry();
@@ -136,77 +309,59 @@
   const colors = new Float32Array(PARTICLE_COUNT * 3);
   const targetColors = new Float32Array(PARTICLE_COUNT * 3);
 
-  // Phase offsets for gentle stationary floating on resting screen
   const phaseX = new Float32Array(PARTICLE_COUNT);
   const phaseY = new Float32Array(PARTICLE_COUNT);
   const phaseZ = new Float32Array(PARTICLE_COUNT);
   const driftSpeed = new Float32Array(PARTICLE_COUNT);
 
-  // Normalized relative coordinate distribution for resting field
   const normX = new Float32Array(PARTICLE_COUNT);
   const normY = new Float32Array(PARTICLE_COUNT);
   const normZ = new Float32Array(PARTICLE_COUNT);
 
-  // Tunnel configuration per particle:
-  // Organic, starry cylindrical shell (2,400 particles randomly scattered along a hollow 3D cylinder)
-  const TUNNEL_SPAN = 48.0;
+  const TUNNEL_SPAN = 58.0;
   const tunnelBaseZ = new Float32Array(PARTICLE_COUNT);
   const tunnelAngle = new Float32Array(PARTICLE_COUNT);
   const tunnelRadius = new Float32Array(PARTICLE_COUNT);
 
   function configureBeaconParticle(pIdx, slotIndex) {
     if (pIdx >= PARTICLE_COUNT) return;
-    // Deep in the tunnel: only comes up later after the tunnel is fully formed
-    tunnelBaseZ[pIdx] = 18.0 + slotIndex * 7.5;
+    tunnelBaseZ[pIdx] = 14.0 + slotIndex * 5.2;
     tunnelRadius[pIdx] = 0.74;
 
-    // 4 directional wall assignments matching inward facing orientation:
-    // Slot 0 (Left wall: angle = PI) -> points right inward
-    // Slot 1 (Right wall: angle = 0) -> points left inward
-    // Slot 2 (Top wall: angle = PI/2) -> points down inward
-    // Slot 3 (Bottom wall: angle = -PI/2) -> points up inward
-    if (slotIndex % 4 === 0) {
-      tunnelAngle[pIdx] = Math.PI; // left wall
-    } else if (slotIndex % 4 === 1) {
-      tunnelAngle[pIdx] = 0.0; // right wall
-    } else if (slotIndex % 4 === 2) {
-      tunnelAngle[pIdx] = Math.PI / 2; // top wall
-    } else {
-      tunnelAngle[pIdx] = -Math.PI / 2; // bottom wall
-    }
+    if (slotIndex % 4 === 0) tunnelAngle[pIdx] = Math.PI;
+    else if (slotIndex % 4 === 1) tunnelAngle[pIdx] = 0.0;
+    else if (slotIndex % 4 === 2) tunnelAngle[pIdx] = Math.PI / 2;
+    else tunnelAngle[pIdx] = -Math.PI / 2;
 
     const p3 = pIdx * 3;
     if (slotIndex % 2 === 0) {
-      targetColors[p3] = 0.12; targetColors[p3 + 1] = 0.58; targetColors[p3 + 2] = 0.98; // Electric Rotary Blue
+      targetColors[p3] = 0.12; targetColors[p3 + 1] = 0.58; targetColors[p3 + 2] = 0.98;
     } else {
-      targetColors[p3] = 0.96; targetColors[p3 + 1] = 0.72; targetColors[p3 + 2] = 0.18; // Radiant Rotary Gold
+      targetColors[p3] = 0.96; targetColors[p3 + 1] = 0.72; targetColors[p3 + 2] = 0.18;
     }
   }
 
   const colorPalette = [
-    new THREE.Color('#1c85d7'), // Primary Interact Blue
-    new THREE.Color('#388ec9'), // Rich Sky Blue
-    new THREE.Color('#2563eb'), // Deep Rotary Electric Blue
-    new THREE.Color('#4d88b4'), // Slate Blue
-    new THREE.Color('#78a8ca'), // Medium Soft Blue
-    new THREE.Color('#9bbecf'), // Muted Blue Gray
-    new THREE.Color('#d4b693'), // Subtle warm parchment speckle
-    new THREE.Color('#e2a85c')  // Warm Rotary Gold sparkle
+    new THREE.Color('#1c85d7'),
+    new THREE.Color('#388ec9'),
+    new THREE.Color('#2563eb'),
+    new THREE.Color('#4d88b4'),
+    new THREE.Color('#78a8ca'),
+    new THREE.Color('#9bbecf'),
+    new THREE.Color('#d4b693'),
+    new THREE.Color('#e2a85c')
   ];
-
   const bgColor = new THREE.Color('#fceeda');
 
   for (let i = 0; i < PARTICLE_COUNT; i++) {
     const i3 = i * 3;
 
-    // Resting field distribution: only the first 420 particles are spread on the home screen
     if (i < REST_PARTICLE_COUNT) {
       normX[i] = Math.random() - 0.5;
       normY[i] = Math.random() - 0.5;
       const z = -4.5 + Math.random() * 7.5;
       normZ[i] = z;
     } else {
-      // Extra tunnel particles wait clustered at the gear hole opening
       normX[i] = (Math.random() - 0.5) * 0.18;
       normY[i] = (Math.random() - 0.5) * 0.18;
       normZ[i] = -0.5 - Math.random() * 8.0;
@@ -217,15 +372,10 @@
     phaseZ[i] = Math.random() * Math.PI * 2;
     driftSpeed[i] = 0.25 + Math.random() * 0.35;
 
-    // Natural, organic distribution along the cylinder surface:
-    // Continuous random longitudinal distribution (no rigid ring rows)
     const u = i / PARTICLE_COUNT;
     tunnelBaseZ[i] = u * TUNNEL_SPAN + (Math.random() - 0.5) * 0.40;
-
-    // Natural random angle around the cylinder circumference (no rigid column lines)
     tunnelAngle[i] = Math.random() * Math.PI * 2;
 
-    // Organic shell thickness: clear open center (r >= 0.68) with starry depth out to 0.96
     const shellDepth = Math.random() * 0.26 + (Math.random() - 0.5) * 0.04;
     tunnelRadius[i] = 0.68 + Math.max(0, shellDepth);
 
@@ -257,14 +407,12 @@
     targetColors[i3 + 1] = chosenColor.g;
     targetColors[i3 + 2] = chosenColor.b;
 
-    // Guide star glow for badge particles
-    if (i === 24 || i === 140) {
-      targetColors[i3] = 0.12; targetColors[i3 + 1] = 0.58; targetColors[i3 + 2] = 0.98; // Electric Rotary Blue
-    } else if (i === 72 || i === 220) {
-      targetColors[i3] = 0.96; targetColors[i3 + 1] = 0.72; targetColors[i3 + 2] = 0.18; // Radiant Rotary Gold
+    if (i === 35 || i === 140 || i === 290 || i === 480) {
+      targetColors[i3] = 0.12; targetColors[i3 + 1] = 0.58; targetColors[i3 + 2] = 0.98;
+    } else if (i === 80 || i === 210 || i === 380 || i === 580) {
+      targetColors[i3] = 0.96; targetColors[i3 + 1] = 0.72; targetColors[i3 + 2] = 0.18;
     }
 
-    // Extra tunnel particles start identical to the background color so they are invisible on the home screen
     if (i < REST_PARTICLE_COUNT) {
       colors[i3] = chosenColor.r;
       colors[i3 + 1] = chosenColor.g;
@@ -278,7 +426,6 @@
 
   particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   particleGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  // On home screen, only draw the sparse resting particles
   particleGeometry.setDrawRange(0, REST_PARTICLE_COUNT);
 
   const particleMaterial = new THREE.PointsMaterial({
@@ -291,67 +438,40 @@
   });
 
   const particleSystem = new THREE.Points(particleGeometry, particleMaterial);
-  // Crucial: disable frustum culling because particles dynamically wrap in front of the camera
   particleSystem.frustumCulled = false;
   scene.add(particleSystem);
 
-  // 4b. Dynamic Constellation Chains (Occasional Chain Reactions: A -> B -> C -> D)
+  // ─────────────────────────────────────────────────────────────
+  // 5b. Constellation chains + sparks
+  // ─────────────────────────────────────────────────────────────
   const clock = new THREE.Clock();
-
   const MAX_CHAIN_SEGMENTS = 14;
   const linePositions = new Float32Array(MAX_CHAIN_SEGMENTS * 2 * 3);
   const lineColors = new Float32Array(MAX_CHAIN_SEGMENTS * 2 * 3);
-
   const lineGeometry = new THREE.BufferGeometry();
   lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
   lineGeometry.setAttribute('color', new THREE.BufferAttribute(lineColors, 3));
-
-  const lineMaterial = new THREE.LineBasicMaterial({
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.90,
-    depthWrite: false
-  });
-
+  const lineMaterial = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.90, depthWrite: false });
   const lineMesh = new THREE.LineSegments(lineGeometry, lineMaterial);
   lineMesh.frustumCulled = false;
   scene.add(lineMesh);
 
-  // Vivid Glowing Sparks at the connected chain nodes
   const MAX_SPARKS = 16;
   const sparkPositions = new Float32Array(MAX_SPARKS * 3);
   const sparkColors = new Float32Array(MAX_SPARKS * 3);
   const sparkGeometry = new THREE.BufferGeometry();
   sparkGeometry.setAttribute('position', new THREE.BufferAttribute(sparkPositions, 3));
   sparkGeometry.setAttribute('color', new THREE.BufferAttribute(sparkColors, 3));
-
-  const sparkMaterial = new THREE.PointsMaterial({
-    size: 0.088, // 2x normal particle size for vivid sparkling glow
-    sizeAttenuation: true,
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.95,
-    depthWrite: false
-  });
-
+  const sparkMaterial = new THREE.PointsMaterial({ size: 0.088, sizeAttenuation: true, vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false });
   const sparkPoints = new THREE.Points(sparkGeometry, sparkMaterial);
   sparkPoints.frustumCulled = false;
   scene.add(sparkPoints);
 
-  const activeChain = {
-    nodes: [], // indices of particles in the chain [p0, p1, p2, p3]
-    startTime: 0,
-    segmentDuration: 0.85, // duration each segment is visible
-    segmentDelay: 0.22,    // delay before next link in the chain sparks
-    totalDuration: 0,
-    nextPickTime: 0.4      // starts first chain almost immediately on load
-  };
+  const activeChain = { nodes: [], startTime: 0, segmentDuration: 0.85, segmentDelay: 0.22, totalDuration: 0, nextPickTime: 0.4 };
 
-  // Triggers a sequential chain spark starting from a specific particle
   function triggerChain(startParticle, targetNodes = 4, isClick = false) {
     const posArr = particleGeometry.attributes.position.array;
-    const connectMaxDist = 1.35;
-    const connectMaxDistSq = connectMaxDist * connectMaxDist;
+    const connectMaxDistSq = 1.35 * 1.35;
     const pool = REST_PARTICLE_COUNT;
     const chainNodes = [startParticle];
     const used = new Set([startParticle]);
@@ -359,12 +479,8 @@
     for (let step = 0; step < targetNodes - 1; step++) {
       const curr = chainNodes[chainNodes.length - 1];
       const curr3 = curr * 3;
-      const cx = posArr[curr3];
-      const cy = posArr[curr3 + 1];
-      const cz = posArr[curr3 + 2];
-
-      let bestNeighbor = -1;
-      let bestDistSq = connectMaxDistSq;
+      const cx = posArr[curr3], cy = posArr[curr3 + 1], cz = posArr[curr3 + 2];
+      let bestNeighbor = -1, bestDistSq = connectMaxDistSq;
 
       for (let cand = 0; cand < pool; cand++) {
         if (used.has(cand)) continue;
@@ -373,19 +489,11 @@
         const dy = cy - posArr[cand3 + 1];
         const dz = (cz - posArr[cand3 + 2]) * 0.55;
         const dSq = dx * dx + dy * dy + dz * dz;
-
-        if (dSq < bestDistSq && dSq > 0.0001) {
-          bestDistSq = dSq;
-          bestNeighbor = cand;
-        }
+        if (dSq < bestDistSq && dSq > 0.0001) { bestDistSq = dSq; bestNeighbor = cand; }
       }
 
-      if (bestNeighbor !== -1) {
-        chainNodes.push(bestNeighbor);
-        used.add(bestNeighbor);
-      } else {
-        break;
-      }
+      if (bestNeighbor !== -1) { chainNodes.push(bestNeighbor); used.add(bestNeighbor); }
+      else break;
     }
 
     if (chainNodes.length >= 2) {
@@ -414,11 +522,9 @@
     }
   }
 
-  // 5. Align Gear to DOM Anchor
-  let gearHoleWorldX = 0;
-  let gearHoleWorldY = 0;
-  let baseGearWorldRadius = 1;
-
+  // ─────────────────────────────────────────────────────────────
+  // 6. Align intro gear to DOM anchor
+  // ─────────────────────────────────────────────────────────────
   function updateGearTransform() {
     if (!anchor) return;
     const rect = anchor.getBoundingClientRect();
@@ -433,33 +539,52 @@
     gearGroup.scale.set(baseGearWorldRadius, baseGearWorldRadius, baseGearWorldRadius);
   }
 
-  // 6. Navigation Controls: Scroll Wheel, Trackpad, Touch, and Keyboard
-  // Scroll Down / Right -> Zoom In | Scroll Up / Left -> Zoom Out
+  // ─────────────────────────────────────────────────────────────
+  // 7. Scroll & Nav Interaction
+  // ─────────────────────────────────────────────────────────────
   let targetScrollProg = 0;
   let smoothScrollProg = 0;
 
-  // Wheel & Trackpad listener: smooth, capped, and immediately responsive in both directions
+  // Tunnel scroll (home screen → tunnel)
   window.addEventListener('wheel', (e) => {
-    // Standard mouse wheel and trackpad:
-    // Scrolling down (deltaY > 0) or right (deltaX > 0) zooms in (increases progress)
-    // Scrolling up (deltaY < 0) or left (deltaX < 0) zooms out (decreases progress)
+    // If nav gear is visible, only tunnel scroll when NOT hovering nav area
+    if (navGearVisible && navActive) {
+      handleNavGearScroll(e);
+      return;
+    }
+    if (navGearVisible) return; // block tunnel scroll after exit
+
     const deltaY = e.deltaMode === 1 ? e.deltaY * 24 : e.deltaY;
     const deltaX = e.deltaMode === 1 ? e.deltaX * 24 : e.deltaX;
     const rawDelta = deltaY + deltaX;
-
     const absDelta = Math.abs(rawDelta);
     if (absDelta > 0.4) {
-      // Proportional step with responsive floor and safe ceiling
       const stepMag = Math.min(0.032, Math.max(0.006, absDelta * 0.00032));
       const step = Math.sign(rawDelta) * stepMag;
       targetScrollProg = Math.min(1.0, Math.max(0.0, targetScrollProg + step));
     }
   }, { passive: true });
 
-  // Touch Drag for Mobile / Touchpads
-  let touchStartY = 0;
-  let touchStartX = 0;
+  function handleNavGearScroll(e) {
+    if (navScrollCooldown) return;
+    const deltaY = e.deltaMode === 1 ? e.deltaY * 24 : e.deltaY;
+    const rawDelta = deltaY + (e.deltaMode === 1 ? e.deltaX * 24 : e.deltaX);
+    if (Math.abs(rawDelta) < 2) return;
 
+    const dir = Math.sign(rawDelta);
+    navToothIndex = ((navToothIndex + dir) % NUM_TEETH + NUM_TEETH) % NUM_TEETH;
+    navGearTargetAngle = navToothIndex * TOOTH_ANGLE;
+    activeNavSection = navToothIndex;
+
+    if (navGearImgLoaded) renderNavGearTexture(navToothIndex);
+    updateMainContent(navToothIndex);
+
+    navScrollCooldown = true;
+    setTimeout(() => { navScrollCooldown = false; }, 420);
+  }
+
+  // Touch
+  let touchStartY = 0, touchStartX = 0;
   window.addEventListener('touchstart', (e) => {
     if (e.touches.length === 1) {
       touchStartY = e.touches[0].clientY;
@@ -469,11 +594,26 @@
 
   window.addEventListener('touchmove', (e) => {
     if (e.touches.length === 1) {
-      // Swiping finger up pulls content up (zooms in), swiping finger down zooms out
       const dy = touchStartY - e.touches[0].clientY;
       const dx = touchStartX - e.touches[0].clientX;
       touchStartY = e.touches[0].clientY;
       touchStartX = e.touches[0].clientX;
+
+      if (navGearVisible) {
+        if (navScrollCooldown) return;
+        const rawDelta = dy + dx;
+        if (Math.abs(rawDelta) > 4) {
+          const dir = Math.sign(rawDelta);
+          navToothIndex = ((navToothIndex + dir) % NUM_TEETH + NUM_TEETH) % NUM_TEETH;
+          navGearTargetAngle = navToothIndex * TOOTH_ANGLE;
+          activeNavSection = navToothIndex;
+          if (navGearImgLoaded) renderNavGearTexture(navToothIndex);
+          updateMainContent(navToothIndex);
+          navScrollCooldown = true;
+          setTimeout(() => { navScrollCooldown = false; }, 420);
+        }
+        return;
+      }
 
       const rawTouchDelta = dy + dx;
       const absTouch = Math.abs(rawTouchDelta);
@@ -484,178 +624,248 @@
     }
   }, { passive: true });
 
-  // Keyboard navigation: Down/Right to zoom in, Up/Left to zoom out
+  // Keyboard
   window.addEventListener('keydown', (e) => {
+    if (navGearVisible) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (navScrollCooldown) return;
+        navToothIndex = (navToothIndex + 1) % NUM_TEETH;
+        navGearTargetAngle = navToothIndex * TOOTH_ANGLE;
+        activeNavSection = navToothIndex;
+        if (navGearImgLoaded) renderNavGearTexture(navToothIndex);
+        updateMainContent(navToothIndex);
+        navScrollCooldown = true;
+        setTimeout(() => { navScrollCooldown = false; }, 420);
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        if (navScrollCooldown) return;
+        navToothIndex = ((navToothIndex - 1) + NUM_TEETH) % NUM_TEETH;
+        navGearTargetAngle = navToothIndex * TOOTH_ANGLE;
+        activeNavSection = navToothIndex;
+        if (navGearImgLoaded) renderNavGearTexture(navToothIndex);
+        updateMainContent(navToothIndex);
+        navScrollCooldown = true;
+        setTimeout(() => { navScrollCooldown = false; }, 420);
+      }
+      return;
+    }
+
     if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
       e.preventDefault();
-      if (activeFocusedCard && !activeFocusedCard.classList.contains('pinned')) {
-        releaseCardFocus(activeFocusedCard, true);
-      }
-      targetScrollProg = Math.min(1.0, targetScrollProg + 0.05);
+      targetScrollProg = Math.min(1.0, targetScrollProg + 0.04);
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'PageUp') {
       e.preventDefault();
-      if (activeFocusedCard && !activeFocusedCard.classList.contains('pinned')) {
-        releaseCardFocus(activeFocusedCard, true);
-      }
-      targetScrollProg = Math.max(0.0, targetScrollProg - 0.05);
+      targetScrollProg = Math.max(0.0, targetScrollProg - 0.04);
     }
   });
 
-  // 7. Mouse Tracking & Raycasting (Home screen only)
-  const mouse = {
-    screenX: 0,
-    screenY: 0,
-    worldX: 0,
-    worldY: 0,
-    isHovered: false
-  };
-
+  // ─────────────────────────────────────────────────────────────
+  // 8. Mouse Tracking
+  // ─────────────────────────────────────────────────────────────
+  const mouse = { screenX: 0, screenY: 0, worldX: 0, worldY: 0, isHovered: false, clientX: 0, clientY: 0 };
   const raycaster = new THREE.Raycaster();
   const mousePlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
   const planeIntersect = new THREE.Vector3();
 
   function onPointerMove(e) {
     mouse.isHovered = true;
+    mouse.clientX = e.clientX;
+    mouse.clientY = e.clientY;
     mouse.screenX = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.screenY = -(e.clientY / window.innerHeight) * 2 + 1;
 
-    // Only project mouse to world coordinates when on home screen to avoid near-plane division spikes
+    // Nav hover zone = left ~42% of screen
+    navActive = navGearVisible && (e.clientX < window.innerWidth * 0.42);
+
     if (smoothScrollProg < 0.10 && camera.position.z > 0.5) {
       raycaster.setFromCamera(new THREE.Vector2(mouse.screenX, mouse.screenY), camera);
       raycaster.ray.intersectPlane(mousePlane, planeIntersect);
-
-      if (planeIntersect && isFinite(planeIntersect.x) && isFinite(planeIntersect.y)) {
+      if (planeIntersect && isFinite(planeIntersect.x)) {
         mouse.worldX = planeIntersect.x;
         mouse.worldY = planeIntersect.y;
       }
+    }
+
+    // Tooth hover detection (screen-space)
+    if (navGearVisible) {
+      detectHoveredTooth(e.clientX, e.clientY);
     }
   }
 
   window.addEventListener('pointermove', onPointerMove, { passive: true });
   window.addEventListener('pointerleave', () => {
     mouse.isHovered = false;
+    navActive = false;
+    hoveredToothIndex = -1;
+    tooltipTargetFade = 0;
   });
 
-  // Click/Tap on a particle triggers an immediate long cascading chain spark (8 to 11 nodes!)
-  const clickProjectVec = new THREE.Vector3();
+  function getNavGearScreenCenter() {
+    // Nav gear center in screen pixels
+    // The gear is at world position (navGearWorldX, 0, navGearWorldZ)
+    // Project to screen
+    const v = new THREE.Vector3(navGearWorldX, 0, navGearWorldZ);
+    v.project(camera);
+    const sx = (v.x * 0.5 + 0.5) * window.innerWidth;
+    const sy = (-v.y * 0.5 + 0.5) * window.innerHeight;
+    return { sx, sy };
+  }
 
-  window.addEventListener('click', (e) => {
-    // Only active on the home screen
-    if (smoothScrollProg > 0.15) return;
-    if (e.target && (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('a, button'))) {
-      return;
+  function detectHoveredTooth(cx, cy) {
+    if (!navGearVisible) { hoveredToothIndex = -1; tooltipTargetFade = 0; return; }
+    const { sx, sy } = getNavGearScreenCenter();
+
+    // Nav gear radius in screen pixels
+    // navGearGroup scale = navGearScale world units, project diff
+    const edgeWorld = new THREE.Vector3(navGearWorldX + navGearScale, 0, navGearWorldZ);
+    edgeWorld.project(camera);
+    const edgeSx = (edgeWorld.x * 0.5 + 0.5) * window.innerWidth;
+    const gearRadiusPx = Math.abs(edgeSx - sx);
+
+    const iconR = gearRadiusPx * 0.88; // matches texture iconR ratio
+    const toothPickR = gearRadiusPx * 0.16;
+
+    for (let i = 0; i < NUM_TEETH; i++) {
+      const ang = (i * TOOTH_ANGLE) + navGearCurrentAngle - Math.PI / 2;
+      const ix = sx + Math.cos(ang) * iconR;
+      const iy = sy + Math.sin(ang) * iconR;
+
+      const dx = cx - ix, dy = cy - iy;
+      if (dx * dx + dy * dy < toothPickR * toothPickR) {
+        if (hoveredToothIndex !== i) {
+          hoveredToothIndex = i;
+          tooltipTargetFade = 1;
+          if (navTooltipEl) {
+            navTooltipEl.textContent = NAV_SECTIONS[i].name;
+          }
+        }
+        return;
+      }
     }
+
+    hoveredToothIndex = -1;
+    tooltipTargetFade = 0;
+  }
+
+  // Click on a particle
+  const clickProjectVec = new THREE.Vector3();
+  window.addEventListener('click', (e) => {
+    if (smoothScrollProg > 0.15) return;
+    if (e.target && (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('a, button'))) return;
 
     const posArr = particleGeometry.attributes.position.array;
     const pool = REST_PARTICLE_COUNT;
-    let closestIndex = -1;
-    let closestDistSq = Infinity;
-    const MAX_CLICK_PX = 130; // generous hit area around particles
-    const maxClickSq = MAX_CLICK_PX * MAX_CLICK_PX;
+    let closestIndex = -1, closestDistSq = Infinity;
+    const maxClickSq = 130 * 130;
 
     for (let i = 0; i < pool; i++) {
       const i3 = i * 3;
       clickProjectVec.set(posArr[i3], posArr[i3 + 1], posArr[i3 + 2]);
       clickProjectVec.project(camera);
-
       const sx = (clickProjectVec.x * 0.5 + 0.5) * window.innerWidth;
       const sy = (-clickProjectVec.y * 0.5 + 0.5) * window.innerHeight;
-
-      const dx = sx - e.clientX;
-      const dy = sy - e.clientY;
+      const dx = sx - e.clientX, dy = sy - e.clientY;
       const dSq = dx * dx + dy * dy;
-
-      if (dSq < closestDistSq) {
-        closestDistSq = dSq;
-        closestIndex = i;
-      }
+      if (dSq < closestDistSq) { closestDistSq = dSq; closestIndex = i; }
     }
 
-    // Trigger an electric long chain reaction starting directly from the clicked particle
     if (closestIndex !== -1 && closestDistSq <= maxClickSq) {
-      const longChainLength = 8 + Math.floor(Math.random() * 4); // 8 to 11 connected particles!
-      triggerChain(closestIndex, longChainLength, true);
+      triggerChain(closestIndex, 8 + Math.floor(Math.random() * 4), true);
     }
   });
 
-  // 8. Responsive Resize
+  // ─────────────────────────────────────────────────────────────
+  // 9. Resize
+  // ─────────────────────────────────────────────────────────────
   function onResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-
     visibleHeight = 2 * 6 * Math.tan((camera.fov * Math.PI) / 360);
     worldPerPixel = visibleHeight / window.innerHeight;
-
     updateGearTransform();
     updateParticleBounds();
   }
-
   window.addEventListener('resize', onResize);
   updateGearTransform();
 
-  // 9. Tunnel Beacon System: Automatic Scroll-Driven Milestone Scoping
+  // ─────────────────────────────────────────────────────────────
+  // 10. Beacon System
+  // ─────────────────────────────────────────────────────────────
   let activeInScopeBeacon = null;
-
   const currentLookAt = new THREE.Vector3(0, 0, -10);
   const targetLookAt = new THREE.Vector3(0, 0, -10);
-
   let beaconDefs = [];
 
   function bindNodeEvents(node) {
     const card = node.querySelector('.beacon-card');
     if (!card || card._bound) return;
     card._bound = true;
-
-    // Optional click to pin/toggle
     card.addEventListener('click', (e) => {
       if (e.target && e.target.tagName === 'A') return;
       card.classList.toggle('is-expanded');
       node.classList.toggle('is-focused');
     });
+    card.addEventListener('mousemove', (e) => {
+      const rect = card.getBoundingClientRect();
+      const x = e.clientX - rect.left - rect.width / 2;
+      const y = e.clientY - rect.top - rect.height / 2;
+      card.style.transform = `perspective(1000px) rotateX(${((-y / (rect.height / 2)) * 8).toFixed(2)}deg) rotateY(${((x / (rect.width / 2)) * 8).toFixed(2)}deg)`;
+    });
+    card.addEventListener('mouseleave', () => { card.style.transform = ''; });
   }
 
   function refreshBeaconDefs() {
     beaconDefs = [];
-    const nodes = document.querySelectorAll('.beacon-node');
-    nodes.forEach(node => {
+    document.querySelectorAll('.beacon-node').forEach(node => {
       const pIdx = parseInt(node.getAttribute('data-pidx'), 10) || 0;
-      const card = node.querySelector('.beacon-card');
-      beaconDefs.push({
-        id: node.id,
-        el: node,
-        cardEl: card,
-        pIdx: pIdx
-      });
+      beaconDefs.push({ id: node.id, el: node, cardEl: node.querySelector('.beacon-card'), pIdx });
       bindNodeEvents(node);
     });
   }
 
-  // Initialize all initial beacon nodes from the DOM
-  const initialNodes = document.querySelectorAll('.beacon-node');
-  initialNodes.forEach((node, idx) => {
+  document.querySelectorAll('.beacon-node').forEach((node, idx) => {
     const pIdx = parseInt(node.getAttribute('data-pidx'), 10);
-    if (!isNaN(pIdx)) {
-      configureBeaconParticle(pIdx, idx);
-    }
+    if (!isNaN(pIdx)) configureBeaconParticle(pIdx, idx);
   });
   refreshBeaconDefs();
 
-  // Smooth camera position & look-at vectors
+  // ─────────────────────────────────────────────────────────────
+  // 11. Main content area update
+  // ─────────────────────────────────────────────────────────────
+  function updateMainContent(sectionIdx) {
+    if (!mainContent) return;
+    const section = NAV_SECTIONS[sectionIdx];
+    const inner = mainContent.querySelector('.content-placeholder-inner');
+    if (!inner) return;
+    inner.querySelector('.cp-label').textContent = section.icon + '  ' + section.name;
+    inner.querySelector('.cp-hint').textContent = 'Placeholder — content coming soon';
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 12. Helpers
+  // ─────────────────────────────────────────────────────────────
   const currentCamPos = new THREE.Vector3(0, 0, 6);
   const targetCamPos = new THREE.Vector3(0, 0, 6);
   let tunnelRollAngle = 0;
   let lastTimestamp = 0;
   let currentRollSpeed = 0.06;
 
-  // Helper smoothstep function
   function smoothstep(min, max, value) {
     const x = Math.max(0, Math.min(1, (value - min) / (max - min)));
     return x * x * (3 - 2 * x);
   }
 
-  // 9. Animation Loop
+  // Nav gear world position (computed once per frame)
+  let navGearWorldX = 0;
+  let navGearWorldZ = 0;
+  let navGearScale = 1;
+
+  // ─────────────────────────────────────────────────────────────
+  // 13. Animation Loop
+  // ─────────────────────────────────────────────────────────────
   function animate() {
     requestAnimationFrame(animate);
 
@@ -663,79 +873,91 @@
     const posAttr = particleGeometry.attributes.position;
     const posArr = posAttr.array;
 
-    // Smooth scroll interpolation (snappy, responsive, and cinematic)
+    // ── Scroll interpolation ──────────────────────────────────
     smoothScrollProg += (targetScrollProg - smoothScrollProg) * 0.14;
 
-    // Phase 1 (0.0 to 0.38): Zoom straight into central axle hole of gear
-    const tZoom = smoothstep(0.0, 0.38, smoothScrollProg);
-    // Phase 2 (0.22 to 0.55): Particles gracefully assemble into the dense cylindrical tunnel
+    // ── Tunnel phases ─────────────────────────────────────────
+    const tZoom     = smoothstep(0.0,  0.38, smoothScrollProg);
     const tAssemble = smoothstep(0.22, 0.55, smoothScrollProg);
-    // Tunnel density expansion: smoothstep from 0.15 to 0.48
     const tunnelDensityProg = smoothstep(0.15, 0.48, smoothScrollProg);
-    // Phase 3 (0.38 to 1.0): Camera plunges forward through the infinite tunnel
-    const tTravel = smoothstep(0.38, 1.0, smoothScrollProg);
+    const tTravel   = smoothstep(0.38, 1.0,  smoothScrollProg);
 
-    // Number of active particles on screen:
-    // Exactly 420 on the home screen; scales smoothly up to 2,400 in the tunnel!
-    const activeCount = Math.floor(
-      REST_PARTICLE_COUNT + (PARTICLE_COUNT - REST_PARTICLE_COUNT) * tunnelDensityProg
-    );
+    // ── Tunnel exit & Nav gear trigger ────────────────────────
+    const tunnelExitProg = smoothstep(0.92, 1.0, smoothScrollProg);
+
+    if (smoothScrollProg >= 0.98 && !navGearVisible) {
+      navGearVisible = true;
+      // Snap camera to fixed viewing position
+      targetScrollProg = 1.0;
+      if (mainContent) mainContent.classList.add('visible');
+      updateMainContent(0);
+    }
+
+    // ── Active particle count ─────────────────────────────────
+    // After tunnel exit, disperse particles back to resting count
+    let activeCount;
+    if (tunnelExitProg > 0) {
+      // Gradually reduce particle count back to resting
+      const disperseCount = Math.floor(
+        REST_PARTICLE_COUNT + (PARTICLE_COUNT - REST_PARTICLE_COUNT) * (1 - tunnelExitProg)
+      );
+      activeCount = disperseCount;
+    } else {
+      activeCount = Math.floor(REST_PARTICLE_COUNT + (PARTICLE_COUNT - REST_PARTICLE_COUNT) * tunnelDensityProg);
+    }
     particleGeometry.setDrawRange(0, activeCount);
 
-    // Dynamically fade in colors of the extra tunnel particles as density expands
+    // ── Fade in tunnel particle colors ────────────────────────
     const colAttr = particleGeometry.attributes.color;
     const colArr = colAttr.array;
-    if (smoothScrollProg < 0.65) {
+    if (smoothScrollProg < 0.65 && tunnelExitProg < 0.1) {
       for (let i = REST_PARTICLE_COUNT; i < activeCount; i++) {
         const i3 = i * 3;
-        colArr[i3] = THREE.MathUtils.lerp(bgColor.r, targetColors[i3], tunnelDensityProg);
+        colArr[i3]     = THREE.MathUtils.lerp(bgColor.r, targetColors[i3],     tunnelDensityProg);
         colArr[i3 + 1] = THREE.MathUtils.lerp(bgColor.g, targetColors[i3 + 1], tunnelDensityProg);
         colArr[i3 + 2] = THREE.MathUtils.lerp(bgColor.b, targetColors[i3 + 2], tunnelDensityProg);
       }
       colAttr.needsUpdate = true;
     }
 
-    // Continuous gear spin
-    gearMesh.rotation.z -= 0.005;
+    // ── Intro gear rotation (scroll-driven) ───────────────────
+    gearGroup.rotation.z = -smoothScrollProg * (Math.PI * 4.2);
 
-    // Camera Navigation: Camera position is ALWAYS strictly on the scroll path (never moves position on hover)
-    const camTargetX = gearHoleWorldX * tZoom;
-    const camTargetY = gearHoleWorldY * tZoom;
-    const TUNNEL_TRAVEL_DIST = 42.0;
-    const camTargetZ = (6.0 * (1 - tZoom) - 0.15 * tZoom) - (TUNNEL_TRAVEL_DIST * tTravel);
+    // ── Camera position ───────────────────────────────────────
+    let camTargetZ;
+    if (navGearVisible) {
+      // Lock camera after tunnel exit, slightly pulled back for 3D context
+      const TUNNEL_TRAVEL_DIST = 52.0;
+      camTargetZ = (6.0 * (1 - 1) - 0.15 * 1) - TUNNEL_TRAVEL_DIST + 2.0;
+    } else {
+      const TUNNEL_TRAVEL_DIST = 52.0;
+      camTargetZ = (6.0 * (1 - tZoom) - 0.15 * tZoom) - (TUNNEL_TRAVEL_DIST * tTravel);
+    }
+    const camTargetX = gearHoleWorldX * tZoom * (1 - tunnelExitProg);
+    const camTargetY = gearHoleWorldY * tZoom * (1 - tunnelExitProg);
     targetCamPos.set(camTargetX, camTargetY, camTargetZ);
 
-    // Default forward gaze down the tunnel
-    const defaultLookX = gearHoleWorldX * tZoom;
-    const defaultLookY = gearHoleWorldY * tZoom;
+    // ── Look-at ───────────────────────────────────────────────
+    const defaultLookX = gearHoleWorldX * tZoom * (1 - tunnelExitProg);
+    const defaultLookY = gearHoleWorldY * tZoom * (1 - tunnelExitProg);
     const defaultLookZ = camTargetZ - 10.0;
 
-    // Automatic Proximity-Driven Scope:
-    // As the camera passes by each card, the card automatically unfolds and the camera turns to look at it!
-    // When the camera passes by and the card goes out of scope, it folds shut and the camera moves on.
-    let inScopeBeacon = null;
-    let maxWeight = 0;
+    // Beacon scoping
+    let inScopeBeacon = null, maxWeight = 0;
 
-    if (smoothScrollProg >= 0.55) {
+    if (smoothScrollProg >= 0.44 && !navGearVisible) {
       for (let b = 0; b < beaconDefs.length; b++) {
         const beacon = beaconDefs[b];
         const card = beacon.cardEl || (beacon.el ? beacon.el.querySelector('.beacon-card') : null);
         const p3 = beacon.pIdx * 3;
         const pZ = posArr[p3 + 2];
-        const distZ = camTargetZ - pZ; // positive when card is ahead of camera
-
-        // Active reading scope zone: 0.9 to 7.2 units ahead of camera
-        const inScope = (distZ >= 0.9 && distZ <= 7.2);
+        const distZ = camTargetZ - pZ;
+        const inScope = (distZ >= 0.8 && distZ <= 6.8);
 
         if (inScope) {
-          // Smooth bell-curve weighting for camera look-at angle
-          const normDist = (distZ - 0.9) / (7.2 - 0.9);
+          const normDist = (distZ - 0.8) / (6.8 - 0.8);
           const weight = Math.sin(normDist * Math.PI);
-          if (weight > maxWeight) {
-            maxWeight = weight;
-            inScopeBeacon = beacon;
-          }
-
+          if (weight > maxWeight) { maxWeight = weight; inScopeBeacon = beacon; }
           if (card && !card.classList.contains('is-expanded')) {
             card.classList.add('is-expanded');
             if (beacon.el) beacon.el.classList.add('is-focused');
@@ -747,8 +969,16 @@
           }
         }
       }
+    } else if (navGearVisible) {
+      // Hide all beacon cards after tunnel exit
+      for (let b = 0; b < beaconDefs.length; b++) {
+        const card = beaconDefs[b].cardEl;
+        if (card && card.classList.contains('is-expanded')) {
+          card.classList.remove('is-expanded');
+          if (beaconDefs[b].el) beaconDefs[b].el.classList.remove('is-focused');
+        }
+      }
     } else {
-      // Before tunnel is formed, ensure all are collapsed
       for (let b = 0; b < beaconDefs.length; b++) {
         const card = beaconDefs[b].cardEl || (beaconDefs[b].el ? beaconDefs[b].el.querySelector('.beacon-card') : null);
         if (card && card.classList.contains('is-expanded')) {
@@ -762,93 +992,134 @@
 
     if (inScopeBeacon && maxWeight > 0.05) {
       const bp3 = inScopeBeacon.pIdx * 3;
-      const bpX = posArr[bp3];
-      const bpY = posArr[bp3 + 1];
-
+      const bpX = posArr[bp3], bpY = posArr[bp3 + 1];
       let side = 'face-right';
       if (inScopeBeacon.el.classList.contains('face-left')) side = 'face-left';
       else if (inScopeBeacon.el.classList.contains('face-down')) side = 'face-down';
       else if (inScopeBeacon.el.classList.contains('face-up')) side = 'face-up';
 
-      let cardOffX = 0;
-      let cardOffY = 0;
+      let cardOffX = 0, cardOffY = 0;
       if (side === 'face-right') cardOffX = 0.22;
       else if (side === 'face-left') cardOffX = -0.22;
       else if (side === 'face-down') cardOffY = -0.20;
       else if (side === 'face-up') cardOffY = 0.20;
 
-      const cardWorldX = bpX + cardOffX;
-      const cardWorldY = bpY + cardOffY;
-
-      // Softly and organically pan camera gaze towards the card as it passes by
-      const panFactor = maxWeight * 0.48;
+      const panFactor = maxWeight * 0.45;
       targetLookAt.set(
-        defaultLookX + (cardWorldX - defaultLookX) * panFactor,
-        defaultLookY + (cardWorldY - defaultLookY) * panFactor,
+        defaultLookX + (bpX + cardOffX - defaultLookX) * panFactor,
+        defaultLookY + (bpY + cardOffY - defaultLookY) * panFactor,
         defaultLookZ
       );
     } else {
       targetLookAt.set(defaultLookX, defaultLookY, defaultLookZ);
     }
 
-    // Camera position follows scroll responsively; camera rotation pans smoothly to meet the card
     currentCamPos.lerp(targetCamPos, 0.14);
     currentLookAt.lerp(targetLookAt, 0.08);
-
     camera.position.copy(currentCamPos);
     camera.lookAt(currentLookAt);
 
-    // Smooth entrance reveal on initial page load
+    // ── Intro animations ──────────────────────────────────────
     const introProgress = Math.min(1.0, elapsedTime / 1.1);
     const introEase = 1.0 - Math.pow(1.0 - introProgress, 3);
 
-    // Portal scale: stays natural during zoom, gently expanding only as gear covers screen
-    const portalExpansion = 1.0 + smoothstep(0.28, 0.38, smoothScrollProg) * 1.5;
+    const portalExpansion = 1.0 + smoothstep(0.22, 0.38, smoothScrollProg) * 2.2;
     const gearScale = baseGearWorldRadius * portalExpansion * introEase;
     gearGroup.scale.set(gearScale, gearScale, gearScale);
 
-    // Lockup Text Fade
     if (lockupText) {
       const textOpacity = Math.max(0, 1.0 - tZoom * 2.8);
       lockupText.style.opacity = textOpacity.toFixed(3);
     }
 
-    // Smooth, cinematic opacity fade into the tunnel portal
-    // Stays 100% solid & opaque on home screen and initial zoom (zero ghosting)
-    // Fades gracefully as camera enters axle hole, then cleanly culls when inside tunnel
-    const gearOpacity = Math.max(0, 1.0 - smoothstep(0.22, 0.38, smoothScrollProg)) * introEase;
-    if (gearOpacity < 0.99) {
-      gearMaterial.transparent = true;
-      gearMaterial.opacity = gearOpacity;
-      gearMaterial.depthWrite = true;
-    } else {
-      gearMaterial.transparent = false;
-      gearMaterial.opacity = 1.0;
-      gearMaterial.depthWrite = true;
-    }
-
-    // Clean visibility cutoff once fully entered into the tunnel
+    const gearOpacity = Math.max(0, 1.0 - smoothstep(0.24, 0.38, smoothScrollProg)) * introEase;
+    gearMaterial.opacity = gearOpacity;
+    gearBackMaterial.opacity = gearOpacity * 0.8;
     gearGroup.visible = (smoothScrollProg < 0.385);
 
-    // Mouse repulsion strictly on the home screen; fades to 0 as soon as zoom begins
-    const mouseActive = mouse.isHovered && smoothScrollProg < 0.08;
-    const mouseStrength = 0.035 * (1.0 - smoothstep(0.0, 0.08, smoothScrollProg));
-    const interactionRadius = 1.1;
-    const interactionRadiusSq = interactionRadius * interactionRadius;
+    // ── Nav Gear (Post-tunnel) ────────────────────────────────
+    if (navGearVisible) {
+      // Slide in from left
+      navGearSlideIn = Math.min(1.0, navGearSlideIn + 0.025);
+      const slideEase = 1.0 - Math.pow(1.0 - navGearSlideIn, 4);
 
-    // Delta-time integration for continuous glitch-free cylinder roll
+      // Gear scale: roughly 85% of viewport height in world units
+      const camZ = camera.position.z;
+      const viewH = 2 * Math.abs(camZ) * Math.tan((camera.fov * Math.PI) / 360);
+      navGearScale = viewH * 0.85;
+
+      // Center is off-screen left so only 2/5 is visible
+      // 2/5 of diameter visible means center is -3/5 * radius from left edge
+      const viewW = viewH * camera.aspect;
+      const leftEdge = -viewW / 2;
+      // visible width of gear = 2/5 * diameter = 4/5 * radius
+      // so gear center x = leftEdge - (3/5 * radius)
+      // But we want 2/5 of diameter = 2/5 * 2R = 4R/5 to show
+      // center at: leftEdge - navGearScale * 0.6  (clipped left)
+      // Actually: left edge is at -viewW/2 in world. Gear center at leftEdge - R*0.6
+      // Slide: start fully off screen, then settle to final pos
+      const finalGearX = leftEdge - navGearScale * 0.6;
+      const startGearX = leftEdge - navGearScale * 2.0;
+      navGearWorldX = startGearX + (finalGearX - startGearX) * slideEase;
+      navGearWorldZ = camera.position.z - 2.5; // slightly in front of camera
+
+      navGearGroup.position.set(navGearWorldX, 0, navGearWorldZ);
+      navGearGroup.scale.set(navGearScale, navGearScale, navGearScale * 0.1);
+      navGearGroup.visible = true;
+
+      // Smooth angle lerp with snap
+      const angleDiff = navGearTargetAngle - navGearCurrentAngle;
+      navGearCurrentAngle += angleDiff * 0.14;
+      if (Math.abs(angleDiff) < 0.0008) navGearCurrentAngle = navGearTargetAngle;
+
+      navGearGroup.rotation.z = navGearCurrentAngle;
+
+      // Tooltip fade
+      tooltipFade += (tooltipTargetFade - tooltipFade) * 0.12;
+      if (navTooltipEl) {
+        if (tooltipFade > 0.02 && hoveredToothIndex >= 0) {
+          navTooltipEl.style.opacity = tooltipFade.toFixed(3);
+          navTooltipEl.style.visibility = 'visible';
+
+          // Position near cursor
+          const tx = mouse.clientX + 18;
+          const ty = mouse.clientY - 32;
+          navTooltipEl.style.left = tx + 'px';
+          navTooltipEl.style.top = ty + 'px';
+        } else {
+          navTooltipEl.style.opacity = '0';
+          navTooltipEl.style.visibility = 'hidden';
+        }
+      }
+    } else {
+      navGearGroup.visible = false;
+      if (navTooltipEl) { navTooltipEl.style.opacity = '0'; navTooltipEl.style.visibility = 'hidden'; }
+    }
+
+    // ── Particle positions ────────────────────────────────────
     const delta = (lastTimestamp === 0) ? 0.016 : Math.min(0.05, elapsedTime - lastTimestamp);
     lastTimestamp = elapsedTime;
 
-    // Gracefully soften rotation to a calm drift when a card is in scope; speeds up between milestones
     const targetRollSpeed = (inScopeBeacon && maxWeight > 0.25) ? (0.016 + (1.0 - maxWeight) * 0.045) : 0.065;
-    const rollLerpRate = 0.04;
-    currentRollSpeed += (targetRollSpeed - currentRollSpeed) * rollLerpRate;
+    currentRollSpeed += (targetRollSpeed - currentRollSpeed) * 0.04;
     tunnelRollAngle += delta * currentRollSpeed;
 
-    // High-performance particle position update
-    if (tAssemble >= 0.98) {
-      // 1. Fully in the tunnel: fast direct cylindrical calculation (zero redundant resting math)
+    const mouseActive = mouse.isHovered && smoothScrollProg < 0.08;
+    const mouseStrength = 0.035 * (1.0 - smoothstep(0.0, 0.08, smoothScrollProg));
+    const interactionRadiusSq = 1.1 * 1.1;
+
+    if (navGearVisible && tunnelExitProg >= 1.0) {
+      // After full tunnel exit: drift particles back to resting ambient positions
+      for (let i = 0; i < REST_PARTICLE_COUNT; i++) {
+        const i3 = i * 3;
+        const ambientX = Math.sin(elapsedTime * driftSpeed[i] + phaseX[i]) * 0.04;
+        const ambientY = Math.cos(elapsedTime * driftSpeed[i] + phaseY[i]) * 0.04;
+        const ambientZ = Math.sin(elapsedTime * driftSpeed[i] * 0.8 + phaseZ[i]) * 0.03;
+        posArr[i3]     = basePositions[i3]     + ambientX;
+        posArr[i3 + 1] = basePositions[i3 + 1] + ambientY;
+        posArr[i3 + 2] = basePositions[i3 + 2] + ambientZ;
+      }
+    } else if (tAssemble >= 0.98) {
       for (let i = 0; i < activeCount; i++) {
         const i3 = i * 3;
         const tunAngle = tunnelAngle[i] + tunnelRollAngle;
@@ -858,7 +1129,6 @@
         posArr[i3 + 2] = -0.2 - tunnelBaseZ[i];
       }
     } else if (tAssemble <= 0.02) {
-      // 2. Pure home screen: update resting particles only (skips all tunnel math)
       for (let i = 0; i < REST_PARTICLE_COUNT; i++) {
         const i3 = i * 3;
         const ambientX = Math.sin(elapsedTime * driftSpeed[i] + phaseX[i]) * 0.04;
@@ -868,13 +1138,11 @@
         if (mouseActive) {
           const curPx = basePositions[i3] + mouseDisplacements[i3];
           const curPy = basePositions[i3 + 1] + mouseDisplacements[i3 + 1];
-          const dx = curPx - mouse.worldX;
-          const dy = curPy - mouse.worldY;
+          const dx = curPx - mouse.worldX, dy = curPy - mouse.worldY;
           const distSq = dx * dx + dy * dy;
-
           if (distSq < interactionRadiusSq && distSq > 0.0001) {
             const dist = Math.sqrt(distSq);
-            const force = (1.0 - dist / interactionRadius) * mouseStrength;
+            const force = (1.0 - dist / 1.1) * mouseStrength;
             mouseDisplacements[i3]     += (dx / dist) * force;
             mouseDisplacements[i3 + 1] += (dy / dist) * force;
           }
@@ -882,19 +1150,19 @@
         mouseDisplacements[i3]     *= 0.90;
         mouseDisplacements[i3 + 1] *= 0.90;
 
-        posArr[i3]     = basePositions[i3] + ambientX + mouseDisplacements[i3];
+        posArr[i3]     = basePositions[i3]     + ambientX + mouseDisplacements[i3];
         posArr[i3 + 1] = basePositions[i3 + 1] + ambientY + mouseDisplacements[i3 + 1];
         posArr[i3 + 2] = basePositions[i3 + 2] + ambientZ;
       }
     } else {
-      // 3. Smooth blend during the brief assembly phase (0.22 < smoothScrollProg < 0.55)
+      // Tunnel assembly blend
       for (let i = 0; i < activeCount; i++) {
         const i3 = i * 3;
         const ambientX = (i < REST_PARTICLE_COUNT) ? Math.sin(elapsedTime * driftSpeed[i] + phaseX[i]) * 0.04 : 0;
         const ambientY = (i < REST_PARTICLE_COUNT) ? Math.cos(elapsedTime * driftSpeed[i] + phaseY[i]) * 0.04 : 0;
         const ambientZ = (i < REST_PARTICLE_COUNT) ? Math.sin(elapsedTime * driftSpeed[i] * 0.8 + phaseZ[i]) * 0.03 : 0;
 
-        const restX = basePositions[i3] + ambientX;
+        const restX = basePositions[i3]     + ambientX;
         const restY = basePositions[i3 + 1] + ambientY;
         const restZ = basePositions[i3 + 2] + ambientZ;
 
@@ -912,91 +1180,54 @@
 
     posAttr.needsUpdate = true;
 
-    // Dynamic Constellation Chains: Occasional chain reactions (A -> B -> C -> D) on title screen
-    let lineIdx = 0;
-    let sparkIdx = 0;
+    // ── Constellation chains ───────────────────────────────────
+    let lineIdx = 0, sparkIdx = 0;
     const lPos = lineGeometry.attributes.position.array;
     const lCol = lineGeometry.attributes.color.array;
     const sPos = sparkGeometry.attributes.position.array;
     const sCol = sparkGeometry.attributes.color.array;
 
-    const linkFade = (1.0 - tAssemble) * (1.0 - smoothstep(0.10, 0.28, smoothScrollProg));
+    const linkFade = navGearVisible ? 0 : (1.0 - tAssemble) * (1.0 - smoothstep(0.10, 0.28, smoothScrollProg));
 
     if (linkFade > 0.02) {
-      // Pick a new ambient chain when previous chain has completed
       if (elapsedTime >= activeChain.nextPickTime) {
         const startP = Math.floor(Math.random() * REST_PARTICLE_COUNT);
-        const targetNodes = 3 + Math.floor(Math.random() * 2); // 3 to 4 nodes for ambient
-        triggerChain(startP, targetNodes, false);
+        triggerChain(startP, 3 + Math.floor(Math.random() * 2), false);
       }
 
-      // Render the active chain: segments ignite sequentially (A -> B, then B -> C, then C -> D ...)
       if (activeChain.nodes.length >= 2) {
         const numSegments = activeChain.nodes.length - 1;
         for (let s = 0; s < numSegments; s++) {
-          const segStartTime = activeChain.startTime + s * activeChain.segmentDelay;
-          const segAge = elapsedTime - segStartTime;
-
+          const segAge = elapsedTime - (activeChain.startTime + s * activeChain.segmentDelay);
           if (segAge >= 0 && segAge < activeChain.segmentDuration) {
             const normAge = segAge / activeChain.segmentDuration;
-            // Smooth bell pulse for each segment
             const pulse = Math.sin(normAge * Math.PI);
             const lineAlpha = pulse * linkFade;
 
             const n1 = activeChain.nodes[s] * 3;
             const n2 = activeChain.nodes[s + 1] * 3;
 
-            // Connect lines between particles
             if (lineIdx < MAX_CHAIN_SEGMENTS) {
               const baseIdx = lineIdx * 6;
-              lPos[baseIdx]     = posArr[n1];
-              lPos[baseIdx + 1] = posArr[n1 + 1];
-              lPos[baseIdx + 2] = posArr[n1 + 2];
-
-              lPos[baseIdx + 3] = posArr[n2];
-              lPos[baseIdx + 4] = posArr[n2 + 1];
-              lPos[baseIdx + 5] = posArr[n2 + 2];
-
-              // Rich crisp Rotary Electric Blue (#1d85d7 to #2563eb)
-              const rC = 0.12 * lineAlpha;
-              const gC = 0.52 * lineAlpha;
-              const bC = 0.92 * lineAlpha;
-
-              lCol[baseIdx]     = rC;
-              lCol[baseIdx + 1] = gC;
-              lCol[baseIdx + 2] = bC;
-
-              lCol[baseIdx + 3] = rC;
-              lCol[baseIdx + 4] = gC;
-              lCol[baseIdx + 5] = bC;
-
+              lPos[baseIdx] = posArr[n1]; lPos[baseIdx+1] = posArr[n1+1]; lPos[baseIdx+2] = posArr[n1+2];
+              lPos[baseIdx+3] = posArr[n2]; lPos[baseIdx+4] = posArr[n2+1]; lPos[baseIdx+5] = posArr[n2+2];
+              const rC = 0.12*lineAlpha, gC = 0.52*lineAlpha, bC = 0.92*lineAlpha;
+              lCol[baseIdx] = rC; lCol[baseIdx+1] = gC; lCol[baseIdx+2] = bC;
+              lCol[baseIdx+3] = rC; lCol[baseIdx+4] = gC; lCol[baseIdx+5] = bC;
               lineIdx++;
             }
 
-            // Flash glowing spark at arriving particle node
             if (sparkIdx < MAX_SPARKS) {
               const spBase = sparkIdx * 3;
-              sPos[spBase]     = posArr[n2];
-              sPos[spBase + 1] = posArr[n2 + 1];
-              sPos[spBase + 2] = posArr[n2 + 2];
-
-              // Vibrant Electric Cyan & Rotary Gold spark glow
-              sCol[spBase]     = 0.15 * lineAlpha;
-              sCol[spBase + 1] = 0.75 * lineAlpha;
-              sCol[spBase + 2] = 1.00 * lineAlpha;
+              sPos[spBase] = posArr[n2]; sPos[spBase+1] = posArr[n2+1]; sPos[spBase+2] = posArr[n2+2];
+              sCol[spBase] = 0.15*lineAlpha; sCol[spBase+1] = 0.75*lineAlpha; sCol[spBase+2] = 1.0*lineAlpha;
               sparkIdx++;
             }
 
-            // Flash start node at the beginning of the chain
             if (s === 0 && sparkIdx < MAX_SPARKS) {
               const spBase = sparkIdx * 3;
-              sPos[spBase]     = posArr[n1];
-              sPos[spBase + 1] = posArr[n1 + 1];
-              sPos[spBase + 2] = posArr[n1 + 2];
-
-              sCol[spBase]     = 0.15 * lineAlpha;
-              sCol[spBase + 1] = 0.75 * lineAlpha;
-              sCol[spBase + 2] = 1.00 * lineAlpha;
+              sPos[spBase] = posArr[n1]; sPos[spBase+1] = posArr[n1+1]; sPos[spBase+2] = posArr[n1+2];
+              sCol[spBase] = 0.15*lineAlpha; sCol[spBase+1] = 0.75*lineAlpha; sCol[spBase+2] = 1.0*lineAlpha;
               sparkIdx++;
             }
           }
@@ -1007,60 +1238,47 @@
     lineGeometry.setDrawRange(0, lineIdx * 2);
     lineGeometry.attributes.position.needsUpdate = true;
     lineGeometry.attributes.color.needsUpdate = true;
-
     sparkGeometry.setDrawRange(0, sparkIdx);
     sparkGeometry.attributes.position.needsUpdate = true;
     sparkGeometry.attributes.color.needsUpdate = true;
 
-    // 10. Update Callout Tags Projected Directly from Real Tunnel Particles
+    // ── Beacon card projections ────────────────────────────────
     const beaconProjVec = new THREE.Vector3();
-
     for (let b = 0; b < beaconDefs.length; b++) {
       const beacon = beaconDefs[b];
       if (!beacon.el) continue;
 
-      const p3 = beacon.pIdx * 3;
-      const pX = posArr[p3];
-      const pY = posArr[p3 + 1];
-      const pZ = posArr[p3 + 2];
+      if (navGearVisible) {
+        beacon.el.style.opacity = '0';
+        beacon.el.style.visibility = 'hidden';
+        beacon.el.style.pointerEvents = 'none';
+        continue;
+      }
 
-      // Project the exact 3D particle coordinate to 2D screen coordinate
-      beaconProjVec.set(pX, pY, pZ);
+      const p3 = beacon.pIdx * 3;
+      beaconProjVec.set(posArr[p3], posArr[p3+1], posArr[p3+2]);
       beaconProjVec.project(camera);
 
-      // Distance from camera to this real particle along Z
-      const distZ = camera.position.z - pZ;
-
+      const distZ = camera.position.z - posArr[p3+2];
       const isThisFocused = (activeInScopeBeacon && activeInScopeBeacon.pIdx === beacon.pIdx);
 
-      // ONLY come up later in the tunnel (when smoothScrollProg >= 0.55, deep in the formed tunnel)
-      if (smoothScrollProg < 0.55 || distZ < 0.35 || distZ > 22.0 || beaconProjVec.z > 1.0) {
+      if (smoothScrollProg < 0.40 || distZ < 0.35 || distZ > 24.0 || beaconProjVec.z > 1.0) {
         beacon.el.style.opacity = '0';
         beacon.el.style.visibility = 'hidden';
         beacon.el.style.pointerEvents = 'none';
       } else {
-        const farFade = smoothstep(22.0, 10.0, distZ);
+        const farFade = smoothstep(24.0, 12.0, distZ);
         const nearFade = smoothstep(0.35, 1.4, distZ);
-        const tunnelFade = smoothstep(0.55, 0.65, smoothScrollProg);
+        const tunnelFade = smoothstep(0.40, 0.52, smoothScrollProg);
         let alpha = farFade * nearFade * tunnelFade;
+        if (isThisFocused) alpha = 1.0;
+        else if (activeInScopeBeacon) alpha *= 0.35;
 
-        // If this tag is currently in-scope/expanded, keep it at maximum focus
-        if (isThisFocused) {
-          alpha = 1.0;
-        } else if (activeInScopeBeacon) {
-          // Gently dim other tags in the distance to bring maximum clarity to the active card
-          alpha *= 0.35;
-        }
-
-        // Perspective scale: compact tag scales smoothly with 3D depth
         const scale = THREE.MathUtils.clamp(4.6 / (distZ + 1.6), 0.70, 1.15);
-
         const sx = (beaconProjVec.x * 0.5 + 0.5) * window.innerWidth;
         const sy = (-beaconProjVec.y * 0.5 + 0.5) * window.innerHeight;
-
-        // Viewport padding safety clamp: prevents tags/cards from overflowing off the screen edges
-        const padX = Math.min(200, window.innerWidth * 0.22);
-        const padY = Math.min(160, window.innerHeight * 0.22);
+        const padX = Math.min(220, window.innerWidth * 0.22);
+        const padY = Math.min(180, window.innerHeight * 0.22);
         const safeSx = THREE.MathUtils.clamp(sx, padX, window.innerWidth - padX);
         const safeSy = THREE.MathUtils.clamp(sy, padY, window.innerHeight - padY);
 
