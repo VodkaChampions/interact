@@ -463,83 +463,224 @@ html, body {
 /* ==========================================================================
    Nav Gear Tooltip
    ========================================================================== */
-#nav-tooltip {
-  position: fixed;
-  z-index: 200;
-  pointer-events: none;
-  background: rgba(10, 25, 48, 0.88);
-  color: #e8f4ff;
-  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  padding: 5px 11px;
-  border-radius: 8px;
-  border: 1px solid rgba(37, 200, 255, 0.28);
-  box-shadow: 0 4px 16px rgba(29, 133, 215, 0.25);
-  opacity: 0;
-  visibility: hidden;
-  white-space: nowrap;
-  transition: opacity 0.18s ease;
-}
 
 /* ==========================================================================
-   Main Content Area (Post-tunnel placeholder)
+   Main Menu Placeholder (Post-tunnel destination)
+   ========================================================================== */
+
+/* ==========================================================================
+   Main Menu Placeholder (Post-tunnel destination)
    ========================================================================== */
 #main-content {
   position: fixed;
-  left: 38%;
-  right: 0;
-  top: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 50;
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: scale(0.96) translateY(12px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 24px;
+  overflow-y: auto;
 }
 
 #main-content.visible {
   opacity: 1;
   pointer-events: auto;
+  transform: scale(1) translateY(0);
 }
 
-.content-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.placeholder-modal {
+  background: rgba(255, 252, 247, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 2px dashed rgba(29, 133, 215, 0.38);
+  box-shadow: 0 28px 72px -16px rgba(14, 45, 75, 0.16), 0 0 0 1px rgba(255, 255, 255, 0.9) inset;
+  border-radius: 28px;
+  padding: 38px 44px;
+  max-width: 820px;
   width: 100%;
-  height: 100%;
-  padding: 40px;
-}
-
-.content-placeholder-inner {
   text-align: center;
-  padding: 40px 48px;
-  background: rgba(255, 252, 247, 0.06);
-  border: 1px solid rgba(29, 133, 215, 0.12);
-  border-radius: 24px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  max-width: 480px;
+  margin: auto;
+  position: relative;
 }
 
-.cp-label {
+.placeholder-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-  font-size: clamp(1.6rem, 3.5vw, 2.8rem);
+  font-size: 0.76rem;
   font-weight: 800;
-  color: #1d85d7;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.32);
+  padding: 6px 16px;
+  border-radius: 999px;
   margin-bottom: 12px;
 }
 
-.cp-hint {
+.warning-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+}
+
+.menu-title {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-  font-size: 0.88rem;
-  font-weight: 400;
-  color: rgba(29, 133, 215, 0.55);
-  letter-spacing: 0.01em;
+  font-size: clamp(2rem, 3.6vw, 2.7rem);
+  font-weight: 800;
+  color: #0c2540;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+  margin: 0 0 8px;
+}
+
+.title-badge {
+  font-size: 0.6em;
+  font-weight: 700;
+  color: #d97706;
+  opacity: 0.85;
+}
+
+.menu-subtitle {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 0.95rem;
+  color: #496783;
+  margin: 0 auto 20px;
+  max-width: 540px;
+  line-height: 1.55;
+}
+
+.placeholder-blueprint-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(29, 133, 215, 0.07);
+  border: 1px dashed rgba(29, 133, 215, 0.28);
+  border-radius: 14px;
+  padding: 12px 18px;
+  margin-bottom: 24px;
+  text-align: left;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 0.84rem;
+  color: #23547e;
+  line-height: 1.45;
+}
+
+.bp-icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 26px;
+}
+
+.menu-card.is-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px dashed rgba(29, 133, 215, 0.24);
+  border-radius: 16px;
+  padding: 14px 16px;
+  text-align: left;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.menu-card.is-placeholder:hover {
+  background: #ffffff;
+  border-color: rgba(29, 133, 215, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -4px rgba(29, 133, 215, 0.16);
+}
+
+.ph-tag {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.32);
+  padding: 1px 6px;
+  border-radius: 6px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.mc-icon {
+  font-size: 1.5rem;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(29, 133, 215, 0.09);
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.mc-info {
+  min-width: 0;
+}
+
+.mc-name {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: #0c2540;
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+
+.mc-desc {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 0.74rem;
+  color: #64748b;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1d85d7;
+  opacity: 0.88;
+}
+
+.menu-return-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 640px) {
+  .placeholder-modal {
+    padding: 28px 20px;
+  }
+  .menu-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
 }

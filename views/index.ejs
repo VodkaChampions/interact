@@ -23,15 +23,96 @@
     <div class="mark" id="wheel-anchor"></div>
   </div>
 
-  <!-- Nav Gear Tooltip (3D DOM overlay, appears on tooth hover) -->
-  <div id="nav-tooltip" aria-hidden="true"></div>
+  <!-- Main Menu Placeholder (Appears Post-Tunnel) -->
+  <div id="main-content" aria-label="Main Menu Placeholder" class="main-menu-container">
+    <div class="menu-modal placeholder-modal">
+      <div class="menu-badge placeholder-badge">
+        <span class="badge-dot warning-dot"></span>
+        <span>🚧 WORK IN PROGRESS • PLACEHOLDER</span>
+      </div>
+      <h2 class="menu-title">Main Menu <span class="title-badge">[Placeholder]</span></h2>
+      <p class="menu-subtitle">You have reached the destination of the timeline tunnel. This interactive space is reserved for the full Main Menu currently in development.</p>
 
-  <!-- Main Content Area (appears post-tunnel) -->
-  <div id="main-content" aria-label="Main Content Area">
-    <div class="content-placeholder">
-      <div class="content-placeholder-inner">
-        <div class="cp-label">Select a section</div>
-        <div class="cp-hint">Use the gear wheel to navigate</div>
+      <div class="placeholder-blueprint-banner">
+        <span class="bp-icon">📐</span>
+        <div class="bp-text">
+          <strong>Architecture Draft:</strong> 8 interactive section modules will connect here to showcase club stories, STEM projects, and youth leadership initiatives.
+        </div>
+      </div>
+
+      <div class="menu-grid">
+        <div class="menu-card is-placeholder" data-section="0">
+          <div class="mc-icon">🏠</div>
+          <div class="mc-info">
+            <div class="mc-name">Home <span class="ph-tag">Placeholder</span></div>
+            <div class="mc-desc">Overview &amp; club highlights</div>
+          </div>
+        </div>
+
+        <div class="menu-card is-placeholder" data-section="1">
+          <div class="mc-icon">📖</div>
+          <div class="mc-info">
+            <div class="mc-name">About Us <span class="ph-tag">Placeholder</span></div>
+            <div class="mc-desc">Mission, vision &amp; values</div>
+          </div>
+        </div>
+
+        <div class="menu-card is-placeholder" data-section="2">
+          <div class="mc-icon">🚀</div>
+          <div class="mc-info">
+            <div class="mc-name">Our Projects <span class="ph-tag">Placeholder</span></div>
+            <div class="mc-desc">STEM innovations &amp; community service</div>
+          </div>
+        </div>
+
+        <div class="menu-card is-placeholder" data-section="3">
+          <div class="mc-icon">🎉</div>
+          <div class="mc-info">
+            <div class="mc-name">Events &amp; Activities <span class="ph-tag">Placeholder</span></div>
+            <div class="mc-desc">Saturday assemblies &amp; workshops</div>
+          </div>
+        </div>
+
+        <div class="menu-card is-placeholder" data-section="4">
+          <div class="mc-icon">👥</div>
+          <div class="mc-info">
+            <div class="mc-name">Our Team <span class="ph-tag">Placeholder</span></div>
+            <div class="mc-desc">Student executive board</div>
+          </div>
+        </div>
+
+        <div class="menu-card is-placeholder" data-section="5">
+          <div class="mc-icon">🖼️</div>
+          <div class="mc-info">
+            <div class="mc-name">Gallery <span class="ph-tag">Placeholder</span></div>
+            <div class="mc-desc">Photo archives &amp; moments</div>
+          </div>
+        </div>
+
+        <div class="menu-card is-placeholder" data-section="6">
+          <div class="mc-icon">✋</div>
+          <div class="mc-info">
+            <div class="mc-name">Join Us <span class="ph-tag">Placeholder</span></div>
+            <div class="mc-desc">Membership signup &amp; onboarding</div>
+          </div>
+        </div>
+
+        <div class="menu-card is-placeholder" data-section="7">
+          <div class="mc-icon">✉️</div>
+          <div class="mc-info">
+            <div class="mc-name">Contact Us <span class="ph-tag">Placeholder</span></div>
+            <div class="mc-desc">STEM Center Hall B &amp; Telegram</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="menu-footer">
+        <span class="menu-return-hint">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m18 15-6-6-6 6"/>
+          </svg>
+          Scroll UP to return and explore the interactive timeline tunnel
+        </span>
       </div>
     </div>
   </div>
@@ -118,6 +199,7 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="/static/SVGLoader.js"></script>
   <script src="/static/main.js"></script>
 </body>
 </html>
